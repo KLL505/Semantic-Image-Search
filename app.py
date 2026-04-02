@@ -20,7 +20,7 @@ def rebuild_index():
 # -------------------------------------------------------------------
 # Gradio Interface
 # -------------------------------------------------------------------
-with gr.Blocks( title="Local Image Search") as app:
+with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search") as app:
     gr.Markdown("# Local Semantic Image Search")
     
     with gr.Row():
@@ -58,4 +58,4 @@ with gr.Blocks( title="Local Image Search") as app:
 
 
 if __name__ == "__main__":
-    app.launch(theme=gr.themes.Soft(), share=True)
+    app.launch(share=True)
