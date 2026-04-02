@@ -1,5 +1,5 @@
-torch 
-transformers 
-pillow 
-faiss-cpu 
-gradio
+torch==2.8.0.dev20250419+cu128
+transformers==4.57.3
+pillow==11.3.0
+faiss-cpu==1.13.2
+gradio==6.10.0
