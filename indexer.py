@@ -17,10 +17,6 @@ class Indexer:
         #Device setup
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        #Load standard CLIP model and processor
-        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
-        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-
     #Builds paths file by scanning image directory for supported formats and saving their paths to a JSON file.
     def build_paths(self):
         #Check for directory first
@@ -44,6 +40,10 @@ class Indexer:
         if not image_paths:
             print("No images found to index. Skipping index building.")
             return
+        
+        #Load standard CLIP model and processor here
+        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
+        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
         print("Generating embeddings with CLIP... this might take a moment.")
         embeddings_list = []
