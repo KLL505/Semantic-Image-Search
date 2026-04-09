@@ -6,6 +6,13 @@ from indexer import Indexer
 index_backend = Indexer()
 index_backend.build_Index()
 
+#Only build the index on startup if the database file is missing
+if not os.path.exists("embeddings.faiss"):
+    print("Database not found. Building index for the first time...")
+    index_backend.build_Index()
+else:
+    print("Database found. Skipping initial build.")
+
 search_backend = Searcher()
 
 
