@@ -5,6 +5,7 @@ from transformers import CLIPProcessor, CLIPModel
 from searcher import Searcher
 from indexer import Indexer
 
+#initializes backend classes with shared model and processor instances to save memory and load time. Also handles device setup for GPU/CPU/MPS.
 def initialize_backend():
     # device setup
     if torch.cuda.is_available():
