@@ -9,13 +9,15 @@ from transformers import CLIPProcessor, CLIPModel
 
 class Indexer:
 
-    def __init__(self,image_dir="./images", paths_file="paths.json", index_file="embeddings.faiss"):
+    def __init__(self, device, model, processor, image_dir="./images", paths_file="paths.json", index_file="embeddings.faiss"):
         self.image_dir = image_dir
         self.paths_file = paths_file
         self.index_file = index_file
 
-        #Device setup
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
+        self.model = model
+        self.processor = processor
+
 
     #Builds paths file by scanning image directory for supported formats and saving their paths to a JSON file.
     def build_paths(self):
@@ -33,17 +35,12 @@ class Indexer:
         print(f"Found {len(image_paths)} images, Paths saved to {self.paths_file}.")
         return image_paths
 
-    #TODO: implement the actual logic to build the index using CLIP and FAISS. For now, it just builds the paths file.
     def build_Index(self):
         image_paths = self.build_paths()
         
         if not image_paths:
             print("No images found to index. Skipping index building.")
             return
-        
-        #Load standard CLIP model and processor here
-        model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
-        processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
         print("Generating embeddings with CLIP... this might take a moment.")
         embeddings_list = []
@@ -52,11 +49,11 @@ class Indexer:
             try:
                 #Open and process the image
                 image = Image.open(path).convert("RGB")
-                inputs = processor(images=image, return_tensors="pt").to(self.device)
+                inputs = self.processor(images=image, return_tensors="pt").to(self.device)
                 
                 #Get image features (embeddings) without tracking gradients
                 with torch.no_grad():
-                    image_features = model.get_image_features(**inputs)
+                    image_features = self.model.get_image_features(**inputs)
                 
                 #Normalize the embeddings (Cosine Similarity in FAISS)
                 image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)

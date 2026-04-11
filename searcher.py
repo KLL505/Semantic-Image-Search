@@ -4,31 +4,18 @@ import faiss
 from transformers import CLIPProcessor, CLIPModel
 
 class Searcher:
-    def __init__(self, paths_file="paths.json", index_file="embeddings.faiss"):
+    def __init__(self, device, model, processor, paths_file="paths.json", index_file="embeddings.faiss"):
         self.paths_file = paths_file # filename of list of image paths
         self.index_file = index_file # filename of embedding database
         self.image_paths = [] # list of image paths
         self.embedding_index = None # actual embedding database
-
-        # device setup
-        if torch.cuda.is_available():
-            self.device = torch.device("cuda")
-        elif torch.backends.mps.is_available():
-            self.device = torch.device("mps")
-        else:
-            self.device = torch.device("cpu")
-        print(f"Using {self.device} device")
-
-        # load CLIP model and processor
-        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
-        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-
-        self.model.eval()
+        self.device = device
+        self.model = model
+        self.processor = processor
 
         # initial sync
         self.reload_index()
 
-    #todo: implement the actual search logic using CLIP and FAISS. For now, it just returns all image paths regardless of the query.
     def search(self, query, top_k=3):
         print(f"Recieved query='{query}' and top_k={top_k}")
 
@@ -69,7 +56,6 @@ class Searcher:
 
         return results
 
-    #todo: implement the actual logic to reload the index from disk. For now, it just re-reads the paths file and updates the image_paths list.
     def reload_index(self):
         # loads the image paths from the paths file into memory
         try:
