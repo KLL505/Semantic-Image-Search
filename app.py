@@ -1,19 +1,28 @@
 import os
 import gradio as gr
+import torch
+from transformers import CLIPProcessor, CLIPModel
 from searcher import Searcher
 from indexer import Indexer
 
-index_backend = Indexer()
+#initializes backend classes with shared model and processor instances to save memory and load time. Also handles device setup for GPU/CPU/MPS.
+def initialize_backend():
+    # device setup
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    print(f"Using {device} device")
 
-#Only build the index on startup if the database file is missing
-if not os.path.exists("embeddings.faiss"):
-    print("Database not found. Building index for the first time...")
-    index_backend.build_Index()
-else:
-    print("Database found. Skipping initial build.")
+    # load CLIP model and processor
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
+    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    model.eval()
+    processor.use_fast = False
 
-search_backend = Searcher()
-
+    return device, model, processor
 
 def perform_search(query, top_k): 
     return search_backend.search(query, top_k)
@@ -64,4 +73,15 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search") as app:
 
 
 if __name__ == "__main__":
+    index_backend = Indexer(*initialize_backend())
+
+    #Only build the index on startup if the database file is missing
+    if not os.path.exists("embeddings.faiss"):
+        print("Database not found. Building index for the first time...")
+        index_backend.build_Index()
+    else:
+        print("Database found. Skipping initial build.")
+
+    search_backend = Searcher(*initialize_backend())
+
     app.launch(server_name="127.0.0.1", server_port=7860, share=True)
