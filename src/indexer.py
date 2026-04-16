@@ -42,10 +42,6 @@ class Indexer:
         if not image_paths:
             print("No images found to index. Skipping index building.")
             return
-        
-        #Load standard CLIP model and processor here
-        model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
-        processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
         print(f"Indexing a subset of {len(image_paths)} images in batches of {batch_size}...")
         embeddings_list = []
