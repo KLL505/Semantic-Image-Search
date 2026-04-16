@@ -33,11 +33,11 @@ class Indexer:
         print(f"Found {len(image_paths)} images. Paths saved to {self.paths_file}.")
         return image_paths
 
-    def build_Index(self, batch_size=32):
+    def build_Index(self, batch_size=32, num_images=None):
         all_paths = self.build_paths()
         
-        #LIMIT TO FIRST 1000 IMAGES for testing
-        image_paths = all_paths[:1000]
+        #If num_images is provided, we limit to that number (for testing)
+        image_paths = all_paths[:num_images] if num_images else all_paths
         
         if not image_paths:
             print("No images found to index. Skipping index building.")
