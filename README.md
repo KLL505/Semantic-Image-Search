@@ -10,6 +10,9 @@ pip install -r requirements.txt
 python app.py
 ```
 
+### Dataset Used
+Flickr Dataset containing 31k Images from Kaggle: https://www.kaggle.com/datasets/hsankesara/flickr-image-dataset
+
 ## Environment Setup with Conda
 
 Prereq: Check `https://www.anaconda.com/docs/getting-started/miniconda/install/mac-gui-install` on how to install Conda.
