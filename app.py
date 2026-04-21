@@ -1,30 +1,12 @@
 import os
 import gradio as gr
-import torch
-from transformers import CLIPProcessor, CLIPModel
 from src.searcher import Searcher
 from src.indexer import Indexer
 from src.grapher import Grapher
 from src.graph_component import generate_html_plot
+from src.settings import Settings
 
-# initializes backend classes with shared model and processor instances to save memory and load time. Also handles device setup for GPU/CPU/MPS.
-def initialize_backend():
-    # device setup
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
-    print(f"Using {device} device")
-
-    # load CLIP model and processor
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    model.eval()
-    processor.use_fast = False
-
-    return device, model, processor
+settings = Settings()
 
 def format_gallery_results(paths, all_paths):
     results = []
@@ -48,7 +30,7 @@ def perform_search(text_query, image_query, top_k):
     # Format the gallery tuples
     gallery_data = format_gallery_results(paths, search_backend.image_paths)
     
-    total_count = f"<div style='text-align: right; font-size: 0.9em; color: #6b7280; padding-top: 4px; padding-right: 8px;'>Total Images: {len(search_backend.image_paths)}</div>"
+    total_count = f"<div style='text-align: right; font-size: 0.9em; color: #6b7280; padding-top: 4px; padding-right: 8px;'>Model: {settings.current_model_id} | Total Images: {len(search_backend.image_paths)}</div>"
     
     return gallery_data, total_count
 
@@ -60,8 +42,7 @@ def rebuild_index():
     paths = search_backend.image_paths
     gallery_data = format_gallery_results(paths, paths)
     
-    # Generate clean, right-aligned HTML for the total count
-    total_count = f"<div style='text-align: right; font-size: 0.9em; color: #6b7280; padding-top: 4px; padding-right: 8px;'>Total Images: {len(paths)}</div>"
+    total_count = f"<div style='text-align: right; font-size: 0.9em; color: #6b7280; padding-top: 4px; padding-right: 8px;'>Model: {settings.current_model_id} | Total Images: {len(paths)}</div>"
     
     return gallery_data, total_count
 
@@ -73,12 +54,42 @@ def update_latent_plot(x_text, y_text, offset):
     html_plot = generate_html_plot(df, x_text, y_text)
     return html_plot
 
+def change_model_and_rebuild(new_model_id):
+    global index_backend, search_backend, graph_backend
+    
+    if not new_model_id or not new_model_id.strip():
+        new_model_id = "openai/clip-vit-base-patch32"
+        
+    new_model_id = new_model_id.strip()
+    print(f"Switching model to: {new_model_id}")
+    
+    # Use the class to save the setting and initialize the new hardware/model
+    settings.save_settings(new_model_id)
+    device, model, processor = settings.initialize_backend(new_model_id)
+    
+    index_backend = Indexer(device, model, processor)
+    search_backend = Searcher(device, model, processor)
+    graph_backend = Grapher(device, model, processor, search_backend)
+    
+    index_backend.build_Index()
+    search_backend.reload_index()
+    
+    paths = search_backend.image_paths
+    gallery_data = format_gallery_results(paths, paths)
+    
+    total_count = f"<div style='text-align: right; font-size: 0.9em; color: #6b7280; padding-top: 4px; padding-right: 8px;'>Model: {settings.current_model_id} | Total Images: {len(paths)}</div>"
+    
+    return gallery_data, total_count
+
 # -------------------------------------------------------------------
 # Gradio Interface
 # -------------------------------------------------------------------
 with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=True) as app:
     gr.Markdown("# Local Semantic Image Search")
-    
+
+# -------------------------------------------------------------------
+# Search
+# -------------------------------------------------------------------    
     with gr.Tabs():
         with gr.Tab("Semantic Search"):
             with gr.Row():
@@ -127,6 +138,9 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=T
             # Initial load sends blank search to show all images
             app.load(fn=perform_search, inputs=[search_query, image_query, top_k_slider], outputs=[results_gallery, total_count_display]) 
 
+# -------------------------------------------------------------------
+# Graph
+# -------------------------------------------------------------------
         with gr.Tab("Latent Space Graph"):
             gr.Markdown("Map your images across two distinct semantic concepts (Max 500 images per batch).")
             with gr.Row():
@@ -142,11 +156,40 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=T
             x_axis_input.submit(fn=update_latent_plot, inputs=[x_axis_input, y_axis_input, offset_input], outputs=latent_plot)
             y_axis_input.submit(fn=update_latent_plot, inputs=[x_axis_input, y_axis_input, offset_input], outputs=latent_plot)
             offset_input.submit(fn=update_latent_plot, inputs=[x_axis_input, y_axis_input, offset_input], outputs=latent_plot)
+            
+# -------------------------------------------------------------------
+# Settings
+# -------------------------------------------------------------------
+        with gr.Tab("Settings"):
+            gr.Markdown("### Application Settings")
+            with gr.Row():
+                with gr.Column(scale=2):
+                    model_input = gr.Textbox(
+                        label="Hugging Face Model ID", 
+                        value=settings.current_model_id, # Pull from the class on boot
+                        info="Warning: Changing the model will completely overwrite your current FAISS database. It may take a moment to download new weights and re-embed all images."
+                    )
+                with gr.Column(scale=1):
+                    apply_btn = gr.Button("Apply & Rebuild Index", variant="primary")
+                    status_text = gr.Markdown("") 
+                    
+            apply_btn.click(
+                fn=lambda: "**Status:** Loading new model and rebuilding database... Please wait.", 
+                outputs=[status_text]
+            ).then(
+                fn=change_model_and_rebuild, 
+                inputs=[model_input], 
+                outputs=[results_gallery, total_count_display]
+            ).then(
+                fn=lambda: "**Status:** Success! New model loaded and index rebuilt.", 
+                outputs=[status_text]
+            )
 
 if __name__ == "__main__":
-    index_backend = Indexer(*initialize_backend())
+    shared_device, shared_model, shared_processor = settings.initialize_backend()
+    
+    index_backend = Indexer(shared_device, shared_model, shared_processor)
 
-    # Only build the index on startup if the database file is missing
     if not os.path.exists("./data/embeddings.faiss"):
         print("Database not found. Building index for the first time...")
         os.makedirs("./data", exist_ok=True)
@@ -154,7 +197,7 @@ if __name__ == "__main__":
     else:
         print("Database found. Skipping initial build.")
 
-    search_backend = Searcher(*initialize_backend())
-    graph_backend = Grapher(*initialize_backend(), search_backend)
+    search_backend = Searcher(shared_device, shared_model, shared_processor)
+    graph_backend = Grapher(shared_device, shared_model, shared_processor, search_backend)
 
     app.launch(server_name="127.0.0.1", server_port=7860, share=True)
