@@ -34,7 +34,7 @@ def rebuild_index():
     index_backend.build_Index(settings.batch_size, settings.max_index_images)
     search_backend.reload_index()
     
-    paths = search_backend.image_paths
+    paths = search_backend.image_paths[:settings.max_results_empty]
     
     return format_gallery_results(paths, paths)
 
@@ -53,12 +53,7 @@ def change_settings_and_rebuild(new_model_id, empty_max, batch_size, max_index):
     search_backend = Searcher(device, model, processor)
     graph_backend = Grapher(device, model, processor, search_backend)
     
-    index_backend.build_Index(settings.batch_size, settings.max_index_images)
-    search_backend.reload_index()
-    
-    paths = search_backend.search("", 3, settings.max_results_empty)
-    
-    return format_gallery_results(paths, paths)
+    return rebuild_index()
 
 
 def generate_graph(x_text, y_text, offset):
@@ -180,7 +175,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=T
                             status_text = gr.Markdown("") 
                             
                     apply_btn.click(
-                        fn=lambda: "**Status:** Applying settings and rebuilding database... Please wait.", 
+                        fn=lambda: "Applying settings and rebuilding database... Please wait.", 
                         outputs=[status_text]
                     ).then(
                         fn=change_settings_and_rebuild, 
@@ -188,7 +183,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=T
                         inputs=[model_input, empty_max_input, batch_size_input, max_index_input], 
                         outputs=[results_gallery, total_count_display]
                     ).then(
-                        fn=lambda: "**Status:** Success! Settings saved and index rebuilt.", 
+                        fn=lambda: "Success! Settings saved and index rebuilt.", 
                         outputs=[status_text]
                     )
 
