@@ -18,7 +18,7 @@ def format_gallery_results(paths, all_paths):
         filename = os.path.basename(path)
         caption = f"{filename} | {idx} "
         results.append((path, caption))
-    info_txt = f"<div style='text-align: right; font-size: 0.9em; color: #6b7280; padding-top: 4px; padding-right: 8px;'>Model: {settings.current_model_id} | Total Images: {len(paths)}</div>"
+    info_txt = f"<div style='text-align: right; font-size: 0.9em; color: #6b7280; padding-top: 4px; padding-right: 8px;'>Model: {settings.current_model_id} | Total Images: {min(settings.max_index_images ,len(all_paths))}</div>"
     return results, info_txt
 
 def perform_search(text_query, image_query, top_k):
@@ -38,7 +38,7 @@ def rebuild_index():
     
     return format_gallery_results(paths, paths)
 
-def change_settings_and_rebuild(new_model_id, empty_max, batch_size, max_index):
+def change_settings_and_rebuild(new_model_id, img_dir, empty_max, batch_size, max_index, max_graph):
     global index_backend, search_backend, graph_backend
     
     if not new_model_id or not new_model_id.strip():
@@ -46,10 +46,10 @@ def change_settings_and_rebuild(new_model_id, empty_max, batch_size, max_index):
         
     new_model_id = new_model_id.strip()
     
-    settings.save_settings(new_model_id, empty_max, batch_size, max_index)
+    settings.save_settings(new_model_id, img_dir, empty_max, batch_size, max_index, max_graph)
     device, model, processor = settings.initialize_model(new_model_id)
     
-    index_backend = Indexer(device, model, processor)
+    index_backend = Indexer(device, model, processor, settings.img_dir)
     search_backend = Searcher(device, model, processor)
     graph_backend = Grapher(device, model, processor, search_backend)
     
@@ -57,7 +57,7 @@ def change_settings_and_rebuild(new_model_id, empty_max, batch_size, max_index):
 
 
 def generate_graph(x_text, y_text, offset):
-    df = graph_backend.generate_plot_data(x_text, y_text, offset)
+    df = graph_backend.generate_plot_data(x_text, y_text, offset, settings.max_graph_images)
     if df.empty:
         return "<div style='text-align:center; padding:50px;'>Not enough data to plot or offset out of bounds.</div>"
 
@@ -125,7 +125,6 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=T
 # Graph
 # -------------------------------------------------------------------
         with gr.Tab("Latent Space Graph"):
-            gr.Markdown("Map your images across two distinct semantic concepts (Max 500 images per batch).")
             with gr.Row():
                 x_axis_input = gr.Textbox(label="X-Axis",placeholder="Nature", scale=2)
                 y_axis_input = gr.Textbox(label="Y-Axis",placeholder="Industrial", scale=2)
@@ -152,6 +151,11 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=T
                                 value=settings.current_model_id, 
                                 info="Warning: Changing the model will completely overwrite your current FAISS database."
                             )
+                            img_dir_input = gr.Textbox(
+                                label="Image Directoy Path", 
+                                value=settings.img_dir, 
+                                info="Image directory path application will load from"
+                            )
                             empty_max_input = gr.Number(
                                 label="Max Results on Empty Search",
                                 value=settings.max_results_empty,
@@ -170,6 +174,12 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=T
                                 precision=0,
                                 info="Limit the total number of images read from the directory."
                             )
+                            max_graph_input = gr.Number(
+                                label="Max Images to Graph",
+                                value=settings.max_graph_images,
+                                precision=0,
+                                info="Limit the total number of images top graph."
+                            )
                         with gr.Column(scale=1):
                             apply_btn = gr.Button("Apply & Rebuild Index", variant="primary")
                             status_text = gr.Markdown("") 
@@ -180,7 +190,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=T
                     ).then(
                         fn=change_settings_and_rebuild, 
                         # Be sure to pass all inputs here!
-                        inputs=[model_input, empty_max_input, batch_size_input, max_index_input], 
+                        inputs=[model_input, img_dir_input, empty_max_input, batch_size_input, max_index_input, max_graph_input], 
                         outputs=[results_gallery, total_count_display]
                     ).then(
                         fn=lambda: "Success! Settings saved and index rebuilt.", 
@@ -190,7 +200,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=T
 if __name__ == "__main__":
     shared_device, shared_model, shared_processor = settings.initialize_model()
     
-    index_backend = Indexer(shared_device, shared_model, shared_processor)
+    index_backend = Indexer(shared_device, shared_model, shared_processor, settings.img_dir)
 
     if not os.path.exists("./data/embeddings.faiss"):
         print("Database not found. Building index for the first time...")
