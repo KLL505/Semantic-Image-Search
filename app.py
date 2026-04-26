@@ -5,10 +5,9 @@ from src.indexer import Indexer
 from src.grapher import Grapher
 from src.graph_component import generate_html_plot
 from src.settings import Settings
-from evaluator import SystemEvaluator
+from src.evaluator import SystemEvaluator
 import json
 import numpy as np
-from ground_truth_generator import initialize_ground_truth
 
 settings = Settings()
 
@@ -69,7 +68,7 @@ def generate_graph(x_text, y_text, offset):
     return html_plot
 
 def run_evaluation():
-    with open("data/ground_truth.json", "r") as f:
+    with open("ground_truth.json", "r") as f:
         gt = json.load(f)
     evaluator = SystemEvaluator(search_backend)
     df, latencies = evaluator.run_benchmark(gt)
@@ -244,8 +243,6 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Local Image Search", fill_height=T
                 | **mAP** | Perfect ranking/precision. | No relevant results found. | **Higher** is better (Retrieval Quality). |
                 | **nDCG** | Perfect ordering of results. | No relevant results found. | **Higher** is better (Ranking Sensitivity). |
                 | **Latency** | N/A | N/A | **Lower** is better (Speed). |
-
-                **Note on Latency:** Unlike accuracy metrics, Latency is a performance metric. A "high" score here is actually **bad** (it indicates system lag). You want this number as close to 0ms as possible.
                 """)
 
 if __name__ == "__main__":
@@ -262,9 +259,5 @@ if __name__ == "__main__":
 
     search_backend = Searcher(shared_device, shared_model, shared_processor)
     graph_backend = Grapher(shared_device, shared_model, shared_processor, search_backend)
-
-    # TODO: need a better way to store csv_path...
-    print("Checking for existing ground truth...")
-    initialize_ground_truth("../flickr30k_images/results.csv", "test_images")
 
     app.launch(server_name="127.0.0.1", server_port=7860, share=True)
