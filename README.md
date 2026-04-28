@@ -10,10 +10,6 @@ pip install -r requirements.txt
 python app.py
 ```
 
-### Dataset Used
-
-Flickr Dataset containing 31k Images from Kaggle: https://www.kaggle.com/datasets/hsankesara/flickr-image-dataset
-Validation Dataset which is a subset of 3k random images from the FLickr Dataset: https://drive.google.com/file/d/1xi3XttFL1OhjRHQo-BqFyUI8VqoF6NsM/view?usp=sharing
 
 ## Environment Setup with Conda
 
@@ -55,7 +51,10 @@ conda deactivate
   - Paste the path you copied, but add `/bin/python` to the end of it -> hit `Enter`. For example, mine on a Macbook looks like `/opt/miniconda3/envs/image-search-app/bin/python`.
   - You can check if the interpreter has been applied using `which python`.
 
-## Validation Scripts
+## Validation and Datasets
+Flickr Dataset containing 31k Images from Kaggle: https://www.kaggle.com/datasets/hsankesara/flickr-image-dataset  
+
+For validation of different CLIP models we used a subset of 3k random images from the Flickr Dataset. Results and validation dataset can be found here: https://drive.google.com/drive/folders/1sdw1qsPKNJu9twgrT4RWnlGO3GwMhSZI
 
 Scripts used to generate validation and ground truth data files that are used when evaluating.    
 Steps:

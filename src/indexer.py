@@ -3,6 +3,7 @@ import json
 import torch
 import numpy as np
 import faiss
+import time
 from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
 
@@ -46,6 +47,7 @@ class Indexer:
         print(f"Indexing a subset of {len(image_paths)} images in batches of {batch_size}...")
         embeddings_list = []
         
+        start_time = time.perf_counter()
         for i in range(0, len(image_paths), batch_size):
             #Slicing: takes images from i to i + 32
             batch_paths = image_paths[i : i + batch_size] 
@@ -87,6 +89,6 @@ class Indexer:
         index = faiss.IndexFlatIP(dimension)
         index.add(embeddings_matrix)
         faiss.write_index(index, self.index_file)
-        
-        print(f"Successfully built FAISS index with {index.ntotal} vectors.")
+        end_time = time.perf_counter()
+        print(f"Successfully built FAISS index with {index.ntotal} vectors in {end_time - start_time} seconds.")
         print(f"Database saved to {self.index_file}")
