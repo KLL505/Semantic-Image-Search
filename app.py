@@ -75,14 +75,15 @@ def run_evaluation():
     qps = 1000 / avg_latency if avg_latency > 0 else 0
     summary = (
         f"### System Performance Summary\n"
+        f"- **Model:** {settings.current_model_id}\n"
         f"- **Mean mAP:** {avg_map:.3f}\n"
         f"- **Mean Latency:** {avg_latency:.2f} ms (±{latency_std:.2f}ms)\n"
         f"- **System Throughput:** {qps:.2f} Queries/Sec"
     )
     
+    model_name = settings.current_model_id.replace("/", "_")
     if df is None or df.empty:
         return gr.DownloadButton(visible=False)
-    model_name = settings.current_model_id.replace("/", "_")
     file_path = f"./data/evaluation_{model_name}.csv"
     df.to_csv(file_path, index=False)
 
