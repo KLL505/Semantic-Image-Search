@@ -11,23 +11,31 @@ import numpy as np
 
 settings = Settings()
 
-def format_gallery_results(paths, all_paths):
+def format_gallery_results(paths, all_paths, offset=0):
+    global total
     results = []
     for path in paths:
         filename = os.path.basename(path)
         caption = f"{filename}"
         results.append((path, caption))
-    info_txt = f"<div style='text-align: right; font-size: 0.9em; color: #6b7280; padding-top: 4px; padding-right: 8px;'>Model: {settings.current_model_id} | Total Images: {min(settings.max_index_images ,len(all_paths))}</div>"
+    total = min(settings.max_index_images ,len(all_paths))
+    end_index = min(offset + settings.max_results_empty, total)
+    info_txt = f"<div style='text-align: right; font-size: 0.9em; color: #6b7280; padding-top: 4px; padding-right: 8px;'>Model: {settings.current_model_id} | Total Images: {total} | [{offset}-{end_index}]</div>"
     return results, info_txt
 
-def perform_search(text_query, image_query, top_k):
+def perform_search(text_query, image_query, top_k, page=1):
     top_k = int(top_k)
+
+    if page is not None:
+        offset = (int(page) - 1) * settings.max_results_empty
+    else:
+        offset = 0
     if image_query is not None:
         paths = search_backend.search(image_query, top_k)
     else:
-        paths = search_backend.search(text_query, top_k, settings.max_results_empty)
+        paths = search_backend.search(text_query, top_k, settings.max_results_empty, offset)
     
-    return format_gallery_results(paths, search_backend.image_paths)
+    return format_gallery_results(paths, search_backend.image_paths, offset)
 
 def rebuild_index():
     global index_backend, search_backend, graph_backend
@@ -117,7 +125,13 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Semaintic Image Gallery", fill_hei
                             step=1, 
                             label="Max Results"
                         )
-                        search_btn = gr.Button("Search", variant="primary")
+                        page_offset = gr.Number(
+                            label="Page", 
+                            value=1, 
+                            minimum=1, 
+                            precision=0
+                        )
+                    search_btn = gr.Button("Search", variant="primary")
                     rebuild_btn = gr.Button("Rebuild Index", variant="secondary")
                 
                 with gr.Column(scale=3):
@@ -132,8 +146,9 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Semaintic Image Gallery", fill_hei
                     )
                     
             # Search
-            search_btn.click(fn=perform_search, inputs=[search_query, image_query, top_k_slider], outputs=[results_gallery, info_txt])
-            search_query.submit(fn=perform_search, inputs=[search_query, image_query, top_k_slider], outputs=[results_gallery, info_txt])
+            page_offset.change(fn=perform_search, inputs=[search_query, image_query, top_k_slider, page_offset], outputs=[results_gallery, info_txt])
+            search_btn.click(fn=perform_search, inputs=[search_query, image_query, top_k_slider, page_offset], outputs=[results_gallery, info_txt])
+            search_query.submit(fn=perform_search, inputs=[search_query, image_query, top_k_slider, page_offset], outputs=[results_gallery, info_txt])
             
             # Rebuild
             rebuild_btn.click(fn=rebuild_index, inputs=[], outputs=[results_gallery, info_txt])
